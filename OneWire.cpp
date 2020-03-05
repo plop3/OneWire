@@ -163,6 +163,8 @@ void OneWire::begin(uint8_t pin)
 //
 uint8_t OneWire::reset(void)
 {
+	if ((long)(millis()-lastOpMillis) < 2) { while ((long)(micros()-nextOpMicros) < 0); }
+	
 	IO_REG_TYPE mask IO_REG_MASK_ATTR = bitmask;
 	volatile IO_REG_TYPE *reg IO_REG_BASE_ATTR = baseReg;
 	uint8_t r;
@@ -187,7 +189,9 @@ uint8_t OneWire::reset(void)
 	delayMicroseconds(70);
 	r = !DIRECT_READ(reg, mask);
 	interrupts();
-	delayMicroseconds(410);
+	nextOpMicros=micros()+410;
+	lastOpMillis=millis();
+
 	return r;
 }
 
@@ -197,6 +201,8 @@ uint8_t OneWire::reset(void)
 //
 void OneWire::write_bit(uint8_t v)
 {
+	if ((long)(millis()-lastOpMillis) < 2) { while ((long)(micros()-nextOpMicros) < 0); }
+	
 	IO_REG_TYPE mask IO_REG_MASK_ATTR = bitmask;
 	volatile IO_REG_TYPE *reg IO_REG_BASE_ATTR = baseReg;
 
@@ -207,7 +213,9 @@ void OneWire::write_bit(uint8_t v)
 		delayMicroseconds(10);
 		DIRECT_WRITE_HIGH(reg, mask);	// drive output high
 		interrupts();
-		delayMicroseconds(55);
+		
+		nextOpMicros=micros()+53;
+	    lastOpMillis=millis();
 	} else {
 		noInterrupts();
 		DIRECT_WRITE_LOW(reg, mask);
@@ -215,7 +223,9 @@ void OneWire::write_bit(uint8_t v)
 		delayMicroseconds(65);
 		DIRECT_WRITE_HIGH(reg, mask);	// drive output high
 		interrupts();
-		delayMicroseconds(5);
+		nextOpMicros=micros()+5;
+	    lastOpMillis=millis();
+		delayMicroseconds(65);
 	}
 }
 
@@ -225,6 +235,8 @@ void OneWire::write_bit(uint8_t v)
 //
 uint8_t OneWire::read_bit(void)
 {
+	if ((long)(millis()-lastOpMillis) < 2) { while ((long)(micros()-nextOpMicros) < 0); }
+
 	IO_REG_TYPE mask IO_REG_MASK_ATTR = bitmask;
 	volatile IO_REG_TYPE *reg IO_REG_BASE_ATTR = baseReg;
 	uint8_t r;
@@ -237,7 +249,9 @@ uint8_t OneWire::read_bit(void)
 	delayMicroseconds(10);
 	r = DIRECT_READ(reg, mask);
 	interrupts();
-	delayMicroseconds(53);
+
+	nextOpMicros=micros()+53;
+	lastOpMillis=millis();
 	return r;
 }
 
@@ -252,13 +266,13 @@ void OneWire::write(uint8_t v, uint8_t power /* = 0 */) {
     uint8_t bitMask;
 
     for (bitMask = 0x01; bitMask; bitMask <<= 1) {
-	OneWire::write_bit( (bitMask & v)?1:0);
+		OneWire::write_bit( (bitMask & v)?1:0);
     }
     if ( !power) {
-	noInterrupts();
-	DIRECT_MODE_INPUT(baseReg, bitmask);
-	DIRECT_WRITE_LOW(baseReg, bitmask);
-	interrupts();
+		noInterrupts();
+		DIRECT_MODE_INPUT(baseReg, bitmask);
+		DIRECT_WRITE_LOW(baseReg, bitmask);
+		interrupts();
     }
 }
 
@@ -281,7 +295,7 @@ uint8_t OneWire::read() {
     uint8_t r = 0;
 
     for (bitMask = 0x01; bitMask; bitMask <<= 1) {
-	if ( OneWire::read_bit()) r |= bitMask;
+		if ( OneWire::read_bit()) r |= bitMask;
     }
     return r;
 }
@@ -294,13 +308,27 @@ void OneWire::read_bytes(uint8_t *buf, uint16_t count) {
 //
 // Do a ROM select
 //
-void OneWire::select(const uint8_t rom[8])
+
+// if polling call until this returns true, sends ROM select one byte at a time
+bool OneWire::select(const uint8_t rom[8], bool polling)
 {
+	if ((long)(millis()-lastOpMillis) < 2) { while ((long)(micros()-nextOpMicros) < 0); }
+/*
     uint8_t i;
-
     write(0x55);           // Choose ROM
-
     for (i = 0; i < 8; i++) write(rom[i]);
+	return 0;
+*/
+	static uint8_t stage=0;
+Again:
+    switch (stage) {
+		case 0:	write(0x55); break; // Choose ROM
+		case 1:	case 2:	case 3:	case 4:	case 5:	case 6:	case 7:	case 8: write(rom[stage-1]); break;
+	}
+	stage++;
+	if (stage == 9) stage=0; else if (!polling) goto Again;
+
+	return stage == 0;
 }
 
 //
@@ -308,11 +336,15 @@ void OneWire::select(const uint8_t rom[8])
 //
 void OneWire::skip()
 {
+	if ((long)(millis()-lastOpMillis) < 2) { while ((long)(micros()-nextOpMicros) < 0); }
+
     write(0xCC);           // Skip ROM
 }
 
 void OneWire::depower()
 {
+	if ((long)(millis()-lastOpMillis) < 2) { while ((long)(micros()-nextOpMicros) < 0); }
+
 	noInterrupts();
 	DIRECT_MODE_INPUT(baseReg, bitmask);
 	interrupts();
@@ -368,6 +400,8 @@ void OneWire::target_search(uint8_t family_code)
 //
 bool OneWire::search(uint8_t *newAddr, bool search_mode /* = true */)
 {
+   if ((long)(millis()-lastOpMillis) < 2) { while ((long)(micros()-nextOpMicros) < 0); }
+
    uint8_t id_bit_number;
    uint8_t last_zero, rom_byte_number;
    bool    search_result;

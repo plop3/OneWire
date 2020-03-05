@@ -59,6 +59,8 @@ class OneWire
   private:
     IO_REG_TYPE bitmask;
     volatile IO_REG_TYPE *baseReg;
+	volatile uint32_t lastOpMillis = 0;
+	volatile uint32_t nextOpMicros = 0;
 
 #if ONEWIRE_SEARCH
     // global search state
@@ -79,7 +81,7 @@ class OneWire
     uint8_t reset(void);
 
     // Issue a 1-Wire rom select command, you do the reset first.
-    void select(const uint8_t rom[8]);
+    bool select(const uint8_t rom[8], bool polling = false);
 
     // Issue a 1-Wire rom skip command, to address all on bus.
     void skip(void);

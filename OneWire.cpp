@@ -268,7 +268,8 @@ void OneWire::write(uint8_t v, uint8_t power /* = 0 */) {
     for (bitMask = 0x01; bitMask; bitMask <<= 1) {
 		OneWire::write_bit( (bitMask & v)?1:0);
     }
-    if ( !power) {
+    if (!power) {
+		if ((long)(millis()-lastOpMillis) < 2) { while ((long)(micros()-nextOpMicros) < 0); }
 		noInterrupts();
 		DIRECT_MODE_INPUT(baseReg, bitmask);
 		DIRECT_WRITE_LOW(baseReg, bitmask);
@@ -280,6 +281,7 @@ void OneWire::write_bytes(const uint8_t *buf, uint16_t count, bool power /* = 0 
   for (uint16_t i = 0 ; i < count ; i++)
     write(buf[i]);
   if (!power) {
+	if ((long)(millis()-lastOpMillis) < 2) { while ((long)(micros()-nextOpMicros) < 0); }
     noInterrupts();
     DIRECT_MODE_INPUT(baseReg, bitmask);
     DIRECT_WRITE_LOW(baseReg, bitmask);
@@ -400,8 +402,6 @@ void OneWire::target_search(uint8_t family_code)
 //
 bool OneWire::search(uint8_t *newAddr, bool search_mode /* = true */)
 {
-   if ((long)(millis()-lastOpMillis) < 2) { while ((long)(micros()-nextOpMicros) < 0); }
-
    uint8_t id_bit_number;
    uint8_t last_zero, rom_byte_number;
    bool    search_result;
